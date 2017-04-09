@@ -516,33 +516,39 @@ struct node_concept_t<T>::mvisitor_t {
 
 template <typename T>
 struct leaf_node_t : node_concept_t<T> {
+    using base_t = node_concept_t<T>;
+
     std::string data;
     T value;
 
     leaf_node_t(T value): value(std::move(value)) { }
 
-    void accept(const visitor_t& visitor) const override { visitor(*this); }
-    void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
+    void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
+    void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 struct branch_node_t : node_concept_t<T> {
+    using base_t = node_concept_t<T>;
+
     std::map<char, std::unique_ptr<node_concept_t<T>>> children;
 
     branch_node_t() { }
 
-    virtual void accept(const visitor_t& visitor) const override { visitor(*this); }
-    virtual void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
+    virtual void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
+    virtual void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 struct branch_value_node_t : branch_node_t<T> {
+    using base_t = node_concept_t<T>;
+
     T value;
 
     branch_value_node_t(T value): value(std::move(value)) { }
 
-    void accept(const visitor_t& visitor) const override { visitor(*this); }
-    void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
+    void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
+    void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
