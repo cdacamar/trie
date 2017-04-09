@@ -40,14 +40,12 @@ namespace impl1 {
 class trie {
   struct trie_node_t_ {
     std::map<char, trie_node_t_> children;
-    bool is_word;
-
-    trie_node_t_() : is_word(false) { }
+    bool is_word = false;
   };
   trie_node_t_ root_;
 public:
-  trie() { }
-  ~trie() { }
+  trie()  = default;
+  ~trie() = default;
 
   void insert(const std::string& word) {
     auto first = &root_;
@@ -163,9 +161,7 @@ struct leaf_node_t : node_concept_t {
 
 struct branch_node_t : node_concept_t {
   std::map<char, std::unique_ptr<node_concept_t>> children;
-  bool is_word;
-
-  branch_node_t() : is_word(false) { }
+  bool is_word = false;
 
   void accept(const visitor_t& visitor) const override { visitor(*this); }
   void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
@@ -173,22 +169,22 @@ struct branch_node_t : node_concept_t {
 
 inline
 std::pair<std::unique_ptr<branch_node_t>, branch_node_t*> build_branches(std::string::const_iterator first, std::string::const_iterator last) {
-  std::unique_ptr<branch_node_t> root(new branch_node_t);
+  auto root = std::make_unique<branch_node_t>();
 
   auto parent = root.get();
   for (; first != last; ++first) {
-    auto child(new branch_node_t);
+    auto child(new branch_node_t); // just use a raw point to avoid making temporary ptr
     parent->children[*first].reset(std::move(child));
 
     parent = child; // move to child
   }
 
-  return std::make_pair(std::move(root), parent);
+  return { std::move(root), parent };
 }
 
 inline
 std::unique_ptr<leaf_node_t> make_leaf(std::string::const_iterator first, std::string::const_iterator last) {
-  std::unique_ptr<leaf_node_t> l(new leaf_node_t);
+  auto l = std::make_unique<leaf_node_t>();
   l->data.append(first, last);
   return std::move(l);
 }
@@ -196,14 +192,12 @@ std::unique_ptr<leaf_node_t> make_leaf(std::string::const_iterator first, std::s
 inline
 std::unique_ptr<node_concept_t> breakup_leaf(const leaf_node_t& leaf, std::string::const_iterator common_first, std::string::const_iterator common_second) {
   // first we want to find where the common prefixes end
-  // since MSVC11 doesn't have the C++14 std::mismatch(first1,last1,first2,last2) form, let's just write it
   auto first1 = std::begin(leaf.data);
-  auto last1 = std::end(leaf.data);
+  auto last1  = std::end(leaf.data);
   auto first2 = common_first;
-  auto last2 = common_second;
-  while (first1 != last1 && first2 != last2 && *first1 == *first2) {
-    ++first1; ++first2;
-  }
+  auto last2  = common_second;
+  // once structured bindings are stable across all platforms, std::tie can go away
+  std::tie(first1, first2) = std::mismatch(first1, last1, first2, last2);
 
   // base case (adding same word)
   if (first1 == last1 && first2 == last2) {
@@ -264,8 +258,8 @@ class trie {
 
   detail::branch_node_t root_;
 public:
-  trie() { }
-  ~trie() { }
+  trie()  = default;
+  ~trie() = default;
 
   void insert(const std::string& word) {
     if (word.empty()) return;
@@ -322,7 +316,7 @@ public:
         }
         parent->children[*--first] = std::move(new_node);
       }
-    } visitor(++w_first, w_last, &root_);
+    } visitor{++w_first, w_last, &root_};
 
     first->second->accept(visitor);
   }
@@ -331,7 +325,7 @@ public:
     if (word.empty()) return false;
 
     auto first = std::begin(word);
-    auto last = std::end(word);
+    auto last  = std::end(word);
     bool ret;
 
     struct exists_visitor : node_concept_t::visitor_t {
@@ -362,12 +356,12 @@ public:
       void operator()(const detail::leaf_node_t& leaf) const {
         // compare the remaining string to the leaf value
         auto lfirst = std::begin(leaf.data);
-        auto llast = std::end(leaf.data);
+        auto llast  = std::end(leaf.data);
 
         *result = std::distance(lfirst, llast) == std::distance(*first, *last) &&
           std::equal(lfirst, llast, *first);
       }
-    } visitor(first, last, ret);
+    } visitor{first, last, ret};
 
     root_.accept(visitor);
 
@@ -379,7 +373,7 @@ public:
     matching_word.reserve(prefix.size()); // small optimization
 
     auto first = std::begin(prefix);
-    auto last = std::end(prefix);
+    auto last  = std::end(prefix);
     bool ret;
 
     struct prefix_match_visitor : node_concept_t::visitor_t {
@@ -428,7 +422,7 @@ public:
         }
 
         auto lfirst = std::begin(leaf.data);
-        auto llast = std::end(leaf.data);
+        auto llast  = std::end(leaf.data);
 
         // ensure the prefix will both fit and is shared
         *result = std::distance(*first, *last) <= std::distance(lfirst, llast) &&
@@ -441,7 +435,7 @@ public:
           match->clear(); // invalid
         }
       }
-    } visitor(first, last, matching_word, ret);
+    } visitor{first, last, matching_word, ret};
 
     root_.accept(visitor);
 
@@ -471,7 +465,7 @@ public:
       void operator()(const detail::leaf_node_t& leaf) const {
         result->push_back(*working_prefix + leaf.data);
       }
-    } visitor(working_prefix, ret);
+    } visitor{working_prefix, ret};
 
     root_.accept(visitor);
 
@@ -520,93 +514,104 @@ struct node_concept_t<T>::mvisitor_t {
 
 template <typename T>
 struct leaf_node_t : node_concept_t<T> {
-  using base_t = node_concept_t<T>;
+  using base_t     = node_concept_t<T>;
+  using visitor_t  = typename base_t::visitor_t;
+  using mvisitor_t = typename base_t::mvisitor_t;
 
   std::string data;
   T value;
 
-  leaf_node_t(T value) : value(std::move(value)) { }
+  leaf_node_t(T value) : value{std::move(value)} { }
 
-  void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
-  void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
+  void accept(const visitor_t& visitor) const override { visitor(*this); }
+  void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 struct branch_node_t : node_concept_t<T> {
-  using base_t = node_concept_t<T>;
+  using base_t     = node_concept_t<T>;
+  using visitor_t  = typename base_t::visitor_t;
+  using mvisitor_t = typename base_t::mvisitor_t;
 
   std::map<char, std::unique_ptr<node_concept_t<T>>> children;
 
-  branch_node_t() { }
+  branch_node_t() = default;
+  virtual ~branch_node_t() { }
 
-  virtual void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
-  virtual void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
+  virtual void accept(const visitor_t& visitor) const override { visitor(*this); }
+  virtual void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 struct branch_value_node_t : branch_node_t<T> {
-  using base_t = node_concept_t<T>;
+  using base_t     = node_concept_t<T>;
+  using visitor_t  = typename base_t::visitor_t;
+  using mvisitor_t = typename base_t::mvisitor_t;
 
   T value;
 
-  branch_value_node_t(T value) : value(std::move(value)) { }
+  branch_value_node_t(T value) : value{std::move(value)} { }
 
-  void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
-  void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
+  void accept(const visitor_t& visitor) const override { visitor(*this); }
+  void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
-std::pair<std::unique_ptr<branch_node_t<T>>, branch_node_t<T>*> build_branches(std::string::const_iterator first, std::string::const_iterator last) {
-  std::unique_ptr<branch_node_t<T>> root(new branch_node_t<T>);
+std::pair<std::unique_ptr<branch_node_t<T>>, branch_node_t<T>*> build_branches(std::string::const_iterator first,
+                                                                               std::string::const_iterator last) {
+  auto root = std::make_unique<branch_node_t<T>>();
 
   auto parent = root.get();
   for (; first != last; ++first) {
-    auto child(new branch_node_t<T>);
-    parent->children[*first].reset(std::move(child));
+    auto child(new branch_node_t<T>); // use raw ptr here to avoid temporary
+    parent->children[*first].reset(child);
 
     parent = child; // move to child
   }
 
-  return std::make_pair(std::move(root), parent);
+  return { std::move(root), parent };
 }
 
 template <typename T>
 std::pair<std::unique_ptr<branch_node_t<T>>, branch_value_node_t<T>*> build_branches_to_value(std::string::const_iterator first, std::string::const_iterator last, T value) {
   if (first == last) {
-    std::unique_ptr<branch_value_node_t<T>> root(new branch_value_node_t<T>(std::move(value)));
+    auto root   = std::make_unique<branch_value_node_t<T>>(std::move(value));
     auto parent = root.get();
-    return std::make_pair(std::move(root), parent);
+    return { std::move(root), parent };
   }
 
   auto short_last = std::prev(last);
-  auto branches = build_branches<T>(first, short_last);
+  auto branches   = build_branches<T>(first, short_last);
 
   // the last element is where we want to place the value branch
   // short_last is a valid iterator
-  auto child(new branch_value_node_t<T>(std::move(value)));
+  auto child(new branch_value_node_t<T>{std::move(value)});
   branches.second->children[*short_last].reset(child);
 
-  return std::make_pair(std::move(branches.first), child);
+  return { std::move(branches.first), child };
 }
 
 template <typename T>
-std::unique_ptr<leaf_node_t<T>> make_leaf(std::string::const_iterator first, std::string::const_iterator last, T value) {
-  std::unique_ptr<leaf_node_t<T>> l(new leaf_node_t<T>(std::move(value)));
+std::unique_ptr<leaf_node_t<T>> make_leaf(std::string::const_iterator first,
+                                          std::string::const_iterator last,
+                                          T value) {
+  auto l = std::make_unique<leaf_node_t<T>>(std::move(value));
   l->data.append(first, last);
   return std::move(l);
 }
 
 template <typename T>
-std::unique_ptr<node_concept_t<T>> breakup_leaf(const leaf_node_t<T>& leaf, T leaf_value, std::string::const_iterator common_first, std::string::const_iterator common_second, T value) {
+std::unique_ptr<node_concept_t<T>> breakup_leaf(const leaf_node_t<T>& leaf, T leaf_value,
+                                                std::string::const_iterator common_first,
+                                                std::string::const_iterator common_second,
+                                                T value) {
   // first we want to find where the common prefixes end
-  // since MSVC11 doesn't have the C++14 std::mismatch(first1,last1,first2,last2) form, let's just write it
   auto first1 = std::begin(leaf.data);
-  auto last1 = std::end(leaf.data);
+  auto last1  = std::end(leaf.data);
   auto first2 = common_first;
-  auto last2 = common_second;
-  while (first1 != last1 && first2 != last2 && *first1 == *first2) {
-    ++first1; ++first2;
-  }
+  auto last2  = common_second;
+  // once structured bindings are stable across all platforms, std::tie can go away
+  std::tie(first1, first2) = std::mismatch(first1, last1, first2, last2);
 
   // base case (adding same word)
   if (first1 == last1 && first2 == last2) {
@@ -664,8 +669,8 @@ class trie {
 
   detail::branch_node_t<T> root_;
 public:
-  trie() { }
-  ~trie() { }
+  trie()  = default;
+  ~trie() = default;
 
   void insert(const std::string& word, T value) {
     if (word.empty()) return;
@@ -748,7 +753,7 @@ public:
         }
         parent->children[*--first] = std::move(new_node);
       }
-    } visitor(++w_first, w_last, &root_, value);
+    } visitor{++w_first, w_last, &root_, value};
 
     first->second->accept(visitor);
   }
@@ -772,7 +777,7 @@ public:
 
       value_extract_visitor(bool& extracted, T& value) : extracted(&extracted), value(&value) { *this->extracted = false; }
 
-      void operator()(const detail::branch_node_t<T>& branch) const {
+      void operator()(const detail::branch_node_t<T>&) const {
         // no value here
       }
       void operator()(const detail::branch_value_node_t<T>& vbranch) const {
@@ -783,7 +788,7 @@ public:
         *value = leaf.value;
         *extracted = true;
       }
-    } visitor(extracted, value);
+    } visitor{extracted, value};
 
     node->accept(visitor);
 
@@ -820,14 +825,14 @@ public:
         match->push_back(next->first);
         next->second->accept(*this);
       }
-      void operator()(const detail::branch_value_node_t<T>& vbranch) const {
+      void operator()(const detail::branch_value_node_t<T>&) const {
         *result = true; // done
       }
       void operator()(const detail::leaf_node_t<T>& leaf) const {
         match->append(leaf.data); // just append the whole node
         *result = true;
       }
-    } visitor(matching_word, ret);
+    } visitor{matching_word, ret};
 
     node->accept(visitor);
 
@@ -866,7 +871,7 @@ public:
       void operator()(const detail::leaf_node_t<T>& leaf) const {
         result->push_back(*working_prefix + leaf.data);
       }
-    } visitor(working_prefix, ret);
+    } visitor{working_prefix, ret};
 
     root_.accept(visitor);
 
@@ -929,7 +934,7 @@ private:
           *result = &leaf;
         }
       }
-    } visitor(first, last, ret);
+    } visitor{first, last, ret};
 
     root_.accept(visitor);
 
@@ -993,7 +998,7 @@ private:
           *result = &leaf;
         }
       }
-    } visitor(first, last, ret);
+    } visitor{first, last, ret};
 
     root_.accept(visitor);
 

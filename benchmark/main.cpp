@@ -31,9 +31,8 @@ SOFTWARE.
 #include <type_traits>
 #include <unordered_map>
 
-#include <include/trie.h>
-
 #include <tiny_benchmark.h>
+#include <trie.h>
 
 #define ELMS 1000000
 #define ELM_COUNT_IMPL(count) " in " #count " elements"
@@ -56,12 +55,12 @@ int main() {
 
   auto rnd_seed = d();
   std::cout << "RND Seed: " << rnd_seed << '\n';
-  std::mt19937 gen(rnd_seed);
+  std::mt19937 gen{rnd_seed};
 
   // generate random words for us to use to make benchmarks between the implementations fair
   std::vector<std::string> random_words;
-  std::uniform_int_distribution<> dis(10, 100); // words between 10 and 100 chars in len (so some have to be on the heap)
-  std::uniform_int_distribution<> letter_dis(0, 25); // letters
+  std::uniform_int_distribution<> dis{10, 100}; // words between 10 and 100 chars in len (so some have to be on the heap)
+  std::uniform_int_distribution<> letter_dis{0, 25}; // letters
   for (int i = 0; i != ELMS; ++i) {
     random_words.emplace_back();
 
@@ -69,7 +68,7 @@ int main() {
     word.resize(dis(gen), 'a');
 
     std::transform(std::begin(word), std::end(word), std::begin(word),
-      [&gen, &letter_dis](char c) ->char { return 'a' + static_cast<char>(letter_dis(gen)); });
+      [&gen, &letter_dis](char) ->char { return 'a' + static_cast<char>(letter_dis(gen)); });
   }
 
   SECTION("BENCHMARK [baseline (unsorted): std::vector]")

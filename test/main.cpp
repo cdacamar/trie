@@ -31,7 +31,7 @@ SOFTWARE.
 #endif
 #include <catch/catch.hpp>
 
-#include "../include/trie.h"
+#include <trie.h>
 
 namespace {
 
@@ -43,10 +43,10 @@ void build_radom_list() {
   std::random_device d;
   auto rnd_seed = d();
   std::printf("RND seed: %u\n", rnd_seed);
-  std::mt19937 gen(rnd_seed);
+  std::mt19937 gen{rnd_seed};
 
-  std::uniform_int_distribution<> dis(2, 15); // words between 2 and 15 chars in len
-  std::uniform_int_distribution<> letter_dis(0, 25); // letters
+  std::uniform_int_distribution<> dis{2, 15}; // words between 2 and 15 chars in len
+  std::uniform_int_distribution<> letter_dis{0, 25}; // letters
   for (int i = 0; i != 300; ++i) {
     random_words.emplace_back();
 
@@ -54,10 +54,13 @@ void build_radom_list() {
     word.resize(dis(gen), 'a');
 
     std::transform(std::begin(word), std::end(word), std::begin(word),
-      [&gen, &letter_dis](char c) ->char { return 'a' + static_cast<char>(letter_dis(gen)); });
+      [&gen, &letter_dis](char) ->char { return 'a' + static_cast<char>(letter_dis(gen)); });
   }
 
   // sort remove uniques
+  // since we're testing set-like tree structures we can't
+  // have uniques when we go to confirm if everything got inserted
+  // properly since duplicates won't have 2 entries
   std::sort(std::begin(random_words), std::end(random_words));
   random_words.erase(
     std::unique(std::begin(random_words), std::end(random_words)),
@@ -66,16 +69,15 @@ void build_radom_list() {
   // shuffle
   std::shuffle(std::begin(random_words), std::end(random_words), gen);
 
-  s_random_words.reset(new std::vector<std::string>(std::move(random_words)));
+  s_random_words = std::make_unique<std::vector<std::string>>(std::move(random_words));
 }
 
 } // namespace [anon]
 
 struct test_listener : Catch::TestEventListenerBase {
-    test_listener(const Catch::ReporterConfig& config):
-        TestEventListenerBase(config) { }
+  using TestEventListenerBase::TestEventListenerBase;
 
-    void testRunStarting(const Catch::TestRunInfo& test_run_info) override {
+    void testRunStarting(const Catch::TestRunInfo&) override {
         build_radom_list(); // construct the list of random strings to use
     }
 };
@@ -158,18 +160,14 @@ TEST_CASE("impl1", "[impl1::trie]") {
 
   SECTION("retest starting invariants") {
     REQUIRE(t.exists("cat"));
-    REQUIRE(!t.exists("catt"));
-    REQUIRE(!t.exists("catt"));
     REQUIRE(t.exists("bake"));
-    REQUIRE(!t.exists("bbake"));
-    REQUIRE(!t.exists("bbake"));
     REQUIRE(t.exists("somereallylongword"));
 
     std::string match;
     REQUIRE(t.prefix_match("somereallylongword", match));
     REQUIRE(match == "somereallylongword");
 
-    // we can't match spaces
+    // we can't match spaces since we never instered a word with spaces
     REQUIRE(!t.prefix_match("thing invalid", match));
   }
 }
@@ -251,18 +249,14 @@ TEST_CASE("impl2", "[impl2::trie]") {
 
   SECTION("retest starting invariants") {
     REQUIRE(t.exists("cat"));
-    REQUIRE(!t.exists("catt"));
-    REQUIRE(!t.exists("catt"));
     REQUIRE(t.exists("bake"));
-    REQUIRE(!t.exists("bbake"));
-    REQUIRE(!t.exists("bbake"));
     REQUIRE(t.exists("somereallylongword"));
 
     std::string match;
     REQUIRE(t.prefix_match("somereallylongword", match));
     REQUIRE(match == "somereallylongword");
 
-    // we can't match spaces
+    // we can't match spaces since we never inserted a word with spaces
     REQUIRE(!t.prefix_match("thing invalid", match));
   }
 }
@@ -365,11 +359,7 @@ TEST_CASE("impl3", "[impl3::trie]") {
 
   SECTION("retest starting invariants") {
     REQUIRE(t.exists("cat"));
-    REQUIRE(!t.exists("catt"));
-    REQUIRE(!t.exists("catt"));
     REQUIRE(t.exists("bake"));
-    REQUIRE(!t.exists("bbake"));
-    REQUIRE(!t.exists("bbake"));
     REQUIRE(t.exists("somereallylongword"));
 
     int value;
@@ -392,7 +382,7 @@ TEST_CASE("impl3", "[impl3::trie]") {
     REQUIRE(t.prefix_match("somereallylongword", match));
     REQUIRE(match == "somereallylongword");
 
-    // we can't match spaces
+    // we can't match spaces since we never inserted a word with spaces
     REQUIRE(!t.prefix_match("thing invalid", match));
   }
 }
