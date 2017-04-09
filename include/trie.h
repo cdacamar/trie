@@ -38,91 +38,91 @@ namespace impl1 {
 
 // the stupid dumb implementation
 class trie {
-    struct trie_node_t_ {
-        std::map<char, trie_node_t_> children;
-        bool is_word;
+  struct trie_node_t_ {
+    std::map<char, trie_node_t_> children;
+    bool is_word;
 
-        trie_node_t_(): is_word(false) { }
-    };
-    trie_node_t_ root_;
+    trie_node_t_() : is_word(false) { }
+  };
+  trie_node_t_ root_;
 public:
-    trie() { }
-    ~trie() { }
+  trie() { }
+  ~trie() { }
 
-    void insert(const std::string& word) {
-        auto first = &root_;
-        for (char c : word) {
-            first = &first->children[c]; // create or pull the next node
-        }
-        first->is_word = true;
+  void insert(const std::string& word) {
+    auto first = &root_;
+    for (char c : word) {
+      first = &first->children[c]; // create or pull the next node
+    }
+    first->is_word = true;
+  }
+
+  bool exists(const std::string& word) const {
+    auto first = &root_;
+    for (char c : word) {
+      auto found = first->children.find(c);
+
+      if (found == std::end(first->children)) {
+        return false;
+      }
+      first = &found->second;
     }
 
-    bool exists(const std::string& word) const {
-        auto first = &root_;
-        for (char c : word) {
-            auto found = first->children.find(c);
+    return first->is_word;
+  }
 
-            if (found == std::end(first->children)) {
-                return false;
-            }
-            first = &found->second;
-        }
+  bool prefix_match(const std::string& prefix, std::string& matching_word) const {
+    // first we need to find where this node is
+    auto first = &root_;
+    for (char c : prefix) {
+      auto found = first->children.find(c);
 
-        return first->is_word;
+      if (found == std::end(first->children)) {
+        return false;
+      }
+      first = &found->second;
     }
 
-    bool prefix_match(const std::string& prefix, std::string& matching_word) const {
-        // first we need to find where this node is
-        auto first = &root_;
-        for (char c : prefix) {
-            auto found = first->children.find(c);
+    // matching word is at least our prefix
+    matching_word = prefix;
 
-            if (found == std::end(first->children)) {
-                return false;
-            }
-            first = &found->second;
-        }
-
-        // matching word is at least our prefix
-        matching_word = prefix;
-
-        if (first->is_word) {
-            return true;
-        }
-
-        // get the first child and depth first search find a word node
-        while (!first->is_word) {
-            if (first->children.empty()) {
-                assert( false && "prog error" );
-                return false;
-            }
-            auto next = std::begin(first->children);
-            first = &next->second;
-            matching_word += next->first;
-        }
-
-        return true;
+    if (first->is_word) {
+      return true;
     }
 
-    std::vector<std::string> get_words() const {
-        std::vector<std::string> ret;
-
-        for (const auto& child : root_.children) {
-            get_words_impl_(ret, std::string(1, child.first), child.second);
-        }
-
-        return ret;
+    // get the first child and depth first search find a word node
+    while (!first->is_word) {
+      if (first->children.empty()) {
+        assert(false && "prog error");
+        return false;
+      }
+      auto next = std::begin(first->children);
+      first = &next->second;
+      matching_word += next->first;
     }
+
+    return true;
+  }
+
+  std::vector<std::string> get_words() const {
+    std::vector<std::string> ret;
+
+    for (const auto& child : root_.children) {
+      get_words_impl_(ret, std::string(1, child.first), child.second);
+    }
+
+    return ret;
+  }
 
 private:
-    void get_words_impl_(std::vector<std::string>& words, std::string prefix, const trie_node_t_& node) const {
-        if (node.is_word) words.push_back(prefix);
-        if (node.children.empty()) return;
+  void get_words_impl_(std::vector<std::string>& words, std::string prefix, const trie_node_t_& node) const {
+    if (node.is_word) words.push_back(prefix);
+    if (node.children.empty()) return;
 
-        for (const auto& child : node.children) {
-            get_words_impl_(words, prefix + child.first, child.second);
-        }
+    for (const auto& child : node.children) {
+      get_words_impl_(words, prefix + child.first, child.second);
     }
+  }
 };
 
 } // namespace impl1
@@ -133,346 +133,350 @@ namespace impl2 {
 namespace detail {
 
 struct node_concept_t {
-    virtual ~node_concept_t() { }
+  virtual ~node_concept_t() { }
 
-    struct visitor_t;
-    struct mvisitor_t;
+  struct visitor_t;
+  struct mvisitor_t;
 
-    virtual void accept(const visitor_t& v) const = 0;
-    virtual void accept(mvisitor_t& v) = 0;
+  virtual void accept(const visitor_t& v) const = 0;
+  virtual void accept(mvisitor_t& v)            = 0;
 };
 
 struct leaf_node_t;
 struct branch_node_t;
 struct node_concept_t::visitor_t {
-    virtual void operator()(const leaf_node_t&   leaf)   const = 0;
-    virtual void operator()(const branch_node_t& branch) const = 0;
+  virtual void operator()(const leaf_node_t&   leaf)   const = 0;
+  virtual void operator()(const branch_node_t& branch) const = 0;
 };
 
 struct node_concept_t::mvisitor_t {
-    virtual void operator()(leaf_node_t&   leaf)   = 0;
-    virtual void operator()(branch_node_t& branch) = 0;
+  virtual void operator()(leaf_node_t&   leaf)   = 0;
+  virtual void operator()(branch_node_t& branch) = 0;
 };
 
 struct leaf_node_t : node_concept_t {
-    std::string data;
+  std::string data;
 
-    void accept(const visitor_t& visitor) const override { visitor(*this); }
-    void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
+  void accept(const visitor_t& visitor) const override { visitor(*this); }
+  void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 struct branch_node_t : node_concept_t {
-    std::map<char, std::unique_ptr<node_concept_t>> children;
-    bool is_word;
+  std::map<char, std::unique_ptr<node_concept_t>> children;
+  bool is_word;
 
-    branch_node_t(): is_word(false) { }
+  branch_node_t() : is_word(false) { }
 
-    void accept(const visitor_t& visitor) const override { visitor(*this); }
-    void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
+  void accept(const visitor_t& visitor) const override { visitor(*this); }
+  void accept(mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 inline
 std::pair<std::unique_ptr<branch_node_t>, branch_node_t*> build_branches(std::string::const_iterator first, std::string::const_iterator last) {
-    std::unique_ptr<branch_node_t> root(new branch_node_t);
+  std::unique_ptr<branch_node_t> root(new branch_node_t);
 
-    auto parent = root.get();
-    for (;first != last;++first) {
-        auto child(new branch_node_t);
-        parent->children[*first].reset(std::move(child));
+  auto parent = root.get();
+  for (; first != last; ++first) {
+    auto child(new branch_node_t);
+    parent->children[*first].reset(std::move(child));
 
-        parent = child; // move to child
-    }
+    parent = child; // move to child
+  }
 
-    return std::make_pair(std::move(root), parent);
+  return std::make_pair(std::move(root), parent);
 }
 
 inline
 std::unique_ptr<leaf_node_t> make_leaf(std::string::const_iterator first, std::string::const_iterator last) {
-    std::unique_ptr<leaf_node_t> l(new leaf_node_t);
-    l->data.append(first, last);
-    return std::move(l);
+  std::unique_ptr<leaf_node_t> l(new leaf_node_t);
+  l->data.append(first, last);
+  return std::move(l);
 }
 
 inline
 std::unique_ptr<node_concept_t> breakup_leaf(const leaf_node_t& leaf, std::string::const_iterator common_first, std::string::const_iterator common_second) {
-    // first we want to find where the common prefixes end
-    // since MSVC11 doesn't have the C++14 std::mismatch(first1,last1,first2,last2) form, let's just write it
-    auto first1 = std::begin(leaf.data);
-    auto last1  = std::end(leaf.data);
-    auto first2 = common_first;
-    auto last2  = common_second;
-    while (first1 != last1 && first2 != last2 && *first1 == *first2) {
-        ++first1; ++first2;
-    }
+  // first we want to find where the common prefixes end
+  // since MSVC11 doesn't have the C++14 std::mismatch(first1,last1,first2,last2) form, let's just write it
+  auto first1 = std::begin(leaf.data);
+  auto last1 = std::end(leaf.data);
+  auto first2 = common_first;
+  auto last2 = common_second;
+  while (first1 != last1 && first2 != last2 && *first1 == *first2) {
+    ++first1; ++first2;
+  }
 
-    // base case (adding same word)
-    if (first1 == last1 && first2 == last2) {
-        return nullptr;
-    }
+  // base case (adding same word)
+  if (first1 == last1 && first2 == last2) {
+    return nullptr;
+  }
 
-    // basic first case: we consumed all of the leaf data, so let's return a branch leading down to this
-    //                   node where we split
-    if (first1 == last1) {
-        auto root_leaf = build_branches(std::begin(leaf.data), last1);
+  // basic first case: we consumed all of the leaf data, so let's return a branch leading down to this
+  //                   node where we split
+  if (first1 == last1) {
+    auto root_leaf = build_branches(std::begin(leaf.data), last1);
 
-        // since this happened we want to annotate the bottom of the tree that it _was_ a word
-        root_leaf.second->is_word = true;
+    // since this happened we want to annotate the bottom of the tree that it _was_ a word
+    root_leaf.second->is_word = true;
 
-        // now fill in the remaining leaf
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2);
-
-        return std::move(root_leaf.first);
-    }
-
-    // case 2: we exhausted the word data.  Split up to the prefix part and construct a new leaf rooted at the end of the first prefix match
-    if (first2 == last2) {
-        auto root_leaf = build_branches(common_first, last2);
-
-        // since this happened we want to annotate the bottom of the tree that it _was_ a word
-        root_leaf.second->is_word = true;
-
-        // now fill in the remaining leaf
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1);
-
-        return std::move(root_leaf.first);
-    }
-
-    // case 3: we've exhausted neither, build branches for both paths and construct two leaf nodes
-    auto root_leaf = build_branches(std::begin(leaf.data), first1); // first1 is where the range differs
-
-    // leaf for the old leaf
-    {
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1);
-    }
-
-    // leaf for the new incoming word
-    {
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2);
-    }
+    // now fill in the remaining leaf
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2);
 
     return std::move(root_leaf.first);
+  }
+
+  // case 2: we exhausted the word data.  Split up to the prefix part and construct a new leaf rooted at the end of the first prefix match
+  if (first2 == last2) {
+    auto root_leaf = build_branches(common_first, last2);
+
+    // since this happened we want to annotate the bottom of the tree that it _was_ a word
+    root_leaf.second->is_word = true;
+
+    // now fill in the remaining leaf
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1);
+
+    return std::move(root_leaf.first);
+  }
+
+  // case 3: we've exhausted neither, build branches for both paths and construct two leaf nodes
+  auto root_leaf = build_branches(std::begin(leaf.data), first1); // first1 is where the range differs
+
+  // leaf for the old leaf
+  {
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1);
+  }
+
+  // leaf for the new incoming word
+  {
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2);
+  }
+
+  return std::move(root_leaf.first);
 }
 
 } // namespace detail
 
 class trie {
-    typedef detail::node_concept_t node_concept_t;
+  typedef detail::node_concept_t node_concept_t;
 
-    detail::branch_node_t root_;
+  detail::branch_node_t root_;
 public:
-    trie() { }
-    ~trie() { }
+  trie() { }
+  ~trie() { }
 
-    void insert(const std::string& word) {
-        if (word.empty()) return;
+  void insert(const std::string& word) {
+    if (word.empty()) return;
 
-        auto w_first = std::begin(word);
-        auto w_last  = std::end(word);
+    auto w_first = std::begin(word);
+    auto w_last = std::end(word);
 
-        auto first = root_.children.find(*w_first);
+    auto first = root_.children.find(*w_first);
 
-        if (first == std::end(root_.children)) {
-            // new leaf node
-            // we use std::next here because the leaf contains data under it, not its own char as the first char
-            root_.children[*w_first] = detail::make_leaf(std::next(w_first), w_last);
-            return;
+    if (first == std::end(root_.children)) {
+      // new leaf node
+      // we use std::next here because the leaf contains data under it, not its own char as the first char
+      root_.children[*w_first] = detail::make_leaf(std::next(w_first), w_last);
+      return;
+    }
+
+    // behavior switching on node type
+    struct insert_visitor : node_concept_t::mvisitor_t {
+      std::string::const_iterator      first;
+      std::string::const_iterator      last;
+      detail::branch_node_t*           parent;
+
+      insert_visitor(std::string::const_iterator& first, std::string::const_iterator& last,
+        detail::branch_node_t* parent) :
+        first(first), last(last), parent(parent) { }
+
+      void operator()(detail::branch_node_t& branch) override {
+        if (first == last) {
+          // annotate this node that it's a word
+          branch.is_word = true;
+          return;
         }
 
-        // behavior switching on node type
-        struct insert_visitor : node_concept_t::mvisitor_t {
-            std::string::const_iterator      first;
-            std::string::const_iterator      last;
-            detail::branch_node_t*           parent;
+        auto next = branch.children.find(*first);
+        if (next == std::end(branch.children)) {
+          // found place to insert leaf
+          branch.children[*first] = detail::make_leaf(std::next(first), last);
+          return;
+        }
 
-            insert_visitor(std::string::const_iterator& first, std::string::const_iterator& last,
-                           detail::branch_node_t* parent):
-                first(first), last(last), parent(parent) { }
+        // recurse down the branch
+        ++first; // move forward
+        parent = &branch;
+        next->second->accept(*this);
+      }
+      void operator()(detail::leaf_node_t& leaf) override {
+        // we need to break this leaf apart
+        // --first is ok because we checked this on entry to the top-level function
+        auto new_node = detail::breakup_leaf(leaf, first, last);
+        if (!new_node) {
+          // this indicates no change needs to be made to the tree
+          // the prefixes matched
+          return;
+        }
+        parent->children[*--first] = std::move(new_node);
+      }
+    } visitor(++w_first, w_last, &root_);
 
-            void operator()(detail::branch_node_t& branch) override {
-                if (first == last) {
-                    // annotate this node that it's a word
-                    branch.is_word = true;
-                    return;
-                }
+    first->second->accept(visitor);
+  }
 
-                auto next = branch.children.find(*first);
-                if (next == std::end(branch.children)) {
-                    // found place to insert leaf
-                    branch.children[*first] = detail::make_leaf(std::next(first), last);
-                    return;
-                }
+  bool exists(const std::string& word) const {
+    if (word.empty()) return false;
 
-                // recurse down the branch
-                ++first; // move forward
-                parent = &branch;
-                next->second->accept(*this);
-            }
-            void operator()(detail::leaf_node_t& leaf) override {
-                // we need to break this leaf apart
-                // --first is ok because we checked this on entry to the top-level function
-                auto new_node = detail::breakup_leaf(leaf, first, last);
-                if (!new_node) {
-                    // this indicates no change needs to be made to the tree
-                    // the prefixes matched
-                    return;
-                }
-                parent->children[*--first] = std::move(new_node);
-            }
-        } visitor(++w_first, w_last, &root_);
+    auto first = std::begin(word);
+    auto last = std::end(word);
+    bool ret;
 
-        first->second->accept(visitor);
-    }
+    struct exists_visitor : node_concept_t::visitor_t {
+      std::string::const_iterator* first;
+      std::string::const_iterator* last;
+      bool*                        result;
 
-    bool exists(const std::string& word) const {
-        if (word.empty()) return false;
+      exists_visitor(std::string::const_iterator& first, std::string::const_iterator& last, bool& result) :
+        first(&first), last(&last), result(&result) {
+        *this->result = false;
+      }
 
-        auto first = std::begin(word);
-        auto last  = std::end(word);
-        bool ret;
+      void operator()(const detail::branch_node_t& branch) const {
+        if (*first == *last && branch.is_word) {
+          *result = true;
+          return;
+        }
 
-        struct exists_visitor : node_concept_t::visitor_t {
-            std::string::const_iterator* first;
-            std::string::const_iterator* last;
-            bool*                        result;
+        auto next = branch.children.find(**first);
+        if (next == std::end(branch.children)) {
+          *result = false;
+          return;
+        }
 
-            exists_visitor(std::string::const_iterator& first, std::string::const_iterator& last, bool& result):
-                first(&first), last(&last), result(&result) { *this->result = false; }
+        ++*first; // advance
+        next->second->accept(*this);
+      }
+      void operator()(const detail::leaf_node_t& leaf) const {
+        // compare the remaining string to the leaf value
+        auto lfirst = std::begin(leaf.data);
+        auto llast = std::end(leaf.data);
 
-            void operator()(const detail::branch_node_t& branch) const {
-                if (*first == *last && branch.is_word) {
-                    *result = true;
-                    return;
-                }
+        *result = std::distance(lfirst, llast) == std::distance(*first, *last) &&
+          std::equal(lfirst, llast, *first);
+      }
+    } visitor(first, last, ret);
 
-                auto next = branch.children.find(**first);
-                if (next == std::end(branch.children)) {
-                    *result = false;
-                    return;
-                }
+    root_.accept(visitor);
 
-                ++*first; // advance
-                next->second->accept(*this);
-            }
-            void operator()(const detail::leaf_node_t& leaf) const {
-                // compare the remaining string to the leaf value
-                auto lfirst = std::begin(leaf.data);
-                auto llast  = std::end(leaf.data);
+    return ret;
+  }
 
-                *result = std::distance(lfirst, llast) == std::distance(*first, *last) &&
-                          std::equal(lfirst, llast, *first);
-            }
-        } visitor(first, last, ret);
+  bool prefix_match(const std::string& prefix, std::string& matching_word) const {
+    if (prefix.empty()) return false;
+    matching_word.reserve(prefix.size()); // small optimization
 
-        root_.accept(visitor);
+    auto first = std::begin(prefix);
+    auto last = std::end(prefix);
+    bool ret;
 
-        return ret;
-    }
+    struct prefix_match_visitor : node_concept_t::visitor_t {
+      std::string::const_iterator* first;
+      std::string::const_iterator* last;
+      std::string*                 match;
+      bool*                        result;
 
-    bool prefix_match(const std::string& prefix, std::string& matching_word) const {
-        if (prefix.empty()) return false;
-        matching_word.reserve(prefix.size()); // small optimization
+      prefix_match_visitor(std::string::const_iterator& first, std::string::const_iterator& last,
+        std::string& match, bool& result) :
+        first(&first), last(&last), match(&match), result(&result) {
+        *this->result = false;
+      }
 
-        auto first = std::begin(prefix);
-        auto last  = std::end(prefix);
-        bool ret;
+      void operator()(const detail::branch_node_t& branch) const {
+        if (*first == *last) {
+          // find the first leaf we can match (alphabetical order)
+          if (branch.is_word) {
+            *result = true;
+            return;
+          }
 
-        struct prefix_match_visitor : node_concept_t::visitor_t {
-            std::string::const_iterator* first;
-            std::string::const_iterator* last;
-            std::string*                 match;
-            bool*                        result;
+          // recurse down
+          auto next = std::begin(branch.children);
+          assert(next != std::end(branch.children) && "prog error");
+          match->push_back(next->first);
+          next->second->accept(*this);
+          return;
+        }
 
-            prefix_match_visitor(std::string::const_iterator& first, std::string::const_iterator& last,
-                                 std::string& match, bool& result):
-                first(&first), last(&last), match(&match), result(&result) { *this->result = false; }
+        auto next = branch.children.find(**first);
+        if (next == std::end(branch.children)) {
+          *result = false;
+          return;
+        }
 
-            void operator()(const detail::branch_node_t& branch) const {
-                if (*first == *last) {
-                    // find the first leaf we can match (alphabetical order)
-                    if (branch.is_word) {
-                        *result = true;
-                        return;
-                    }
+        match->push_back(**first); // eat char
+        ++*first; // advance
+        next->second->accept(*this);
+      }
+      void operator()(const detail::leaf_node_t& leaf) const {
+        if (*first == *last) {
+          match->append(leaf.data); // just append the whole node
+          *result = true;
+          return;
+        }
 
-                    // recurse down
-                    auto next = std::begin(branch.children);
-                    assert( next != std::end(branch.children) && "prog error" );
-                    match->push_back(next->first);
-                    next->second->accept(*this);
-                    return;
-                }
+        auto lfirst = std::begin(leaf.data);
+        auto llast = std::end(leaf.data);
 
-                auto next = branch.children.find(**first);
-                if (next == std::end(branch.children)) {
-                    *result = false;
-                    return;
-                }
+        // ensure the prefix will both fit and is shared
+        *result = std::distance(*first, *last) <= std::distance(lfirst, llast) &&
+          std::equal(*first, *last, lfirst);
 
-                match->push_back(**first); // eat char
-                ++*first; // advance
-                next->second->accept(*this);
-            }
-            void operator()(const detail::leaf_node_t& leaf) const {
-                if (*first == *last) {
-                    match->append(leaf.data); // just append the whole node
-                    *result = true;
-                    return;
-                }
+        if (*result) {
+          match->append(lfirst, llast);
+        }
+        else {
+          match->clear(); // invalid
+        }
+      }
+    } visitor(first, last, matching_word, ret);
 
-                auto lfirst = std::begin(leaf.data);
-                auto llast  = std::end(leaf.data);
+    root_.accept(visitor);
 
-                // ensure the prefix will both fit and is shared
-                *result = std::distance(*first, *last) <= std::distance(lfirst, llast) &&
-                          std::equal(*first, *last, lfirst);
+    return ret;
+  }
 
-                if (*result) {
-                    match->append(lfirst, llast);
-                }
-                else {
-                    match->clear(); // invalid
-                }
-            }
-        } visitor(first, last, matching_word, ret);
+  std::vector<std::string> get_words() const {
+    std::vector<std::string> ret;
+    std::string              working_prefix;
 
-        root_.accept(visitor);
+    struct print_visitor : node_concept_t::visitor_t {
+      std::string*              working_prefix;
+      std::vector<std::string>* result;
 
-        return ret;
-    }
+      print_visitor(std::string& working_prefix, std::vector<std::string>& result) :
+        working_prefix(&working_prefix), result(&result) { }
 
-    std::vector<std::string> get_words() const {
-        std::vector<std::string> ret;
-        std::string              working_prefix;
+      void operator()(const detail::branch_node_t& branch) const {
+        if (branch.is_word) result->push_back(*working_prefix);
 
-        struct print_visitor : node_concept_t::visitor_t {
-            std::string*              working_prefix;
-            std::vector<std::string>* result;
+        for (const auto& child : branch.children) {
+          working_prefix->push_back(child.first);
+          child.second->accept(*this);
+          working_prefix->pop_back();
+        }
+      }
+      void operator()(const detail::leaf_node_t& leaf) const {
+        result->push_back(*working_prefix + leaf.data);
+      }
+    } visitor(working_prefix, ret);
 
-            print_visitor(std::string& working_prefix, std::vector<std::string>& result):
-                working_prefix(&working_prefix), result(&result) { }
+    root_.accept(visitor);
 
-            void operator()(const detail::branch_node_t& branch) const {
-                if (branch.is_word) result->push_back(*working_prefix);
-
-                for (const auto& child : branch.children) {
-                    working_prefix->push_back(child.first);
-                    child.second->accept(*this);
-                    working_prefix->pop_back();
-                }
-            }
-            void operator()(const detail::leaf_node_t& leaf) const {
-                result->push_back(*working_prefix + leaf.data);
-            }
-        } visitor(working_prefix, ret);
-
-        root_.accept(visitor);
-
-        return ret;
-    }
+    return ret;
+  }
 };
 
 } // namespace impl2
@@ -484,13 +488,13 @@ namespace detail {
 
 template <typename T>
 struct node_concept_t {
-    virtual ~node_concept_t() { }
+  virtual ~node_concept_t() { }
 
-    struct visitor_t;
-    struct mvisitor_t;
+  struct visitor_t;
+  struct mvisitor_t;
 
-    virtual void accept(const visitor_t& v) const = 0;
-    virtual void accept(mvisitor_t& v) = 0;
+  virtual void accept(const visitor_t& v) const = 0;
+  virtual void accept(mvisitor_t& v)            = 0;
 };
 
 template <typename T>
@@ -502,495 +506,501 @@ struct branch_value_node_t;
 
 template <typename T>
 struct node_concept_t<T>::visitor_t {
-    virtual void operator()(const leaf_node_t<T>&         leaf)    const = 0;
-    virtual void operator()(const branch_node_t<T>&       branch)  const = 0;
-    virtual void operator()(const branch_value_node_t<T>& vbranch) const = 0;
+  virtual void operator()(const leaf_node_t<T>&         leaf)    const = 0;
+  virtual void operator()(const branch_node_t<T>&       branch)  const = 0;
+  virtual void operator()(const branch_value_node_t<T>& vbranch) const = 0;
 };
 
 template <typename T>
 struct node_concept_t<T>::mvisitor_t {
-    virtual void operator()(leaf_node_t<T>&         leaf)    = 0;
-    virtual void operator()(branch_node_t<T>&       branch)  = 0;
-    virtual void operator()(branch_value_node_t<T>& vbranch) = 0;
+  virtual void operator()(leaf_node_t<T>&         leaf)    = 0;
+  virtual void operator()(branch_node_t<T>&       branch)  = 0;
+  virtual void operator()(branch_value_node_t<T>& vbranch) = 0;
 };
 
 template <typename T>
 struct leaf_node_t : node_concept_t<T> {
-    using base_t = node_concept_t<T>;
+  using base_t = node_concept_t<T>;
 
-    std::string data;
-    T value;
+  std::string data;
+  T value;
 
-    leaf_node_t(T value): value(std::move(value)) { }
+  leaf_node_t(T value) : value(std::move(value)) { }
 
-    void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
-    void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
+  void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
+  void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 struct branch_node_t : node_concept_t<T> {
-    using base_t = node_concept_t<T>;
+  using base_t = node_concept_t<T>;
 
-    std::map<char, std::unique_ptr<node_concept_t<T>>> children;
+  std::map<char, std::unique_ptr<node_concept_t<T>>> children;
 
-    branch_node_t() { }
+  branch_node_t() { }
 
-    virtual void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
-    virtual void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
+  virtual void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
+  virtual void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 struct branch_value_node_t : branch_node_t<T> {
-    using base_t = node_concept_t<T>;
+  using base_t = node_concept_t<T>;
 
-    T value;
+  T value;
 
-    branch_value_node_t(T value): value(std::move(value)) { }
+  branch_value_node_t(T value) : value(std::move(value)) { }
 
-    void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
-    void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
+  void accept(const typename base_t::visitor_t& visitor) const override { visitor(*this); }
+  void accept(typename base_t::mvisitor_t& mvisitor) override { mvisitor(*this); }
 };
 
 template <typename T>
 std::pair<std::unique_ptr<branch_node_t<T>>, branch_node_t<T>*> build_branches(std::string::const_iterator first, std::string::const_iterator last) {
-    std::unique_ptr<branch_node_t<T>> root(new branch_node_t<T>);
+  std::unique_ptr<branch_node_t<T>> root(new branch_node_t<T>);
 
-    auto parent = root.get();
-    for (;first != last;++first) {
-        auto child(new branch_node_t<T>);
-        parent->children[*first].reset(std::move(child));
+  auto parent = root.get();
+  for (; first != last; ++first) {
+    auto child(new branch_node_t<T>);
+    parent->children[*first].reset(std::move(child));
 
-        parent = child; // move to child
-    }
+    parent = child; // move to child
+  }
 
-    return std::make_pair(std::move(root), parent);
+  return std::make_pair(std::move(root), parent);
 }
 
 template <typename T>
 std::pair<std::unique_ptr<branch_node_t<T>>, branch_value_node_t<T>*> build_branches_to_value(std::string::const_iterator first, std::string::const_iterator last, T value) {
-    if (first == last) {
-        std::unique_ptr<branch_value_node_t<T>> root(new branch_value_node_t<T>(std::move(value)));
-        auto parent = root.get();
-        return std::make_pair(std::move(root), parent);
-    }
+  if (first == last) {
+    std::unique_ptr<branch_value_node_t<T>> root(new branch_value_node_t<T>(std::move(value)));
+    auto parent = root.get();
+    return std::make_pair(std::move(root), parent);
+  }
 
-    auto short_last = std::prev(last);
-    auto branches   = build_branches<T>(first, short_last);
+  auto short_last = std::prev(last);
+  auto branches = build_branches<T>(first, short_last);
 
-    // the last element is where we want to place the value branch
-    // short_last is a valid iterator
-    auto child(new branch_value_node_t<T>(std::move(value)));
-    branches.second->children[*short_last].reset(child);
+  // the last element is where we want to place the value branch
+  // short_last is a valid iterator
+  auto child(new branch_value_node_t<T>(std::move(value)));
+  branches.second->children[*short_last].reset(child);
 
-    return std::make_pair(std::move(branches.first), child);
+  return std::make_pair(std::move(branches.first), child);
 }
 
 template <typename T>
 std::unique_ptr<leaf_node_t<T>> make_leaf(std::string::const_iterator first, std::string::const_iterator last, T value) {
-    std::unique_ptr<leaf_node_t<T>> l(new leaf_node_t<T>(std::move(value)));
-    l->data.append(first, last);
-    return std::move(l);
+  std::unique_ptr<leaf_node_t<T>> l(new leaf_node_t<T>(std::move(value)));
+  l->data.append(first, last);
+  return std::move(l);
 }
 
 template <typename T>
 std::unique_ptr<node_concept_t<T>> breakup_leaf(const leaf_node_t<T>& leaf, T leaf_value, std::string::const_iterator common_first, std::string::const_iterator common_second, T value) {
-    // first we want to find where the common prefixes end
-    // since MSVC11 doesn't have the C++14 std::mismatch(first1,last1,first2,last2) form, let's just write it
-    auto first1 = std::begin(leaf.data);
-    auto last1  = std::end(leaf.data);
-    auto first2 = common_first;
-    auto last2  = common_second;
-    while (first1 != last1 && first2 != last2 && *first1 == *first2) {
-        ++first1; ++first2;
-    }
+  // first we want to find where the common prefixes end
+  // since MSVC11 doesn't have the C++14 std::mismatch(first1,last1,first2,last2) form, let's just write it
+  auto first1 = std::begin(leaf.data);
+  auto last1 = std::end(leaf.data);
+  auto first2 = common_first;
+  auto last2 = common_second;
+  while (first1 != last1 && first2 != last2 && *first1 == *first2) {
+    ++first1; ++first2;
+  }
 
-    // base case (adding same word)
-    if (first1 == last1 && first2 == last2) {
-        return nullptr;
-    }
+  // base case (adding same word)
+  if (first1 == last1 && first2 == last2) {
+    return nullptr;
+  }
 
-    // basic first case: we consumed all of the leaf data, so let's return a branch leading down to this
-    //                   node where we split
-    if (first1 == last1) {
-        // *_to_value annotates the branch that it is a word
-        auto root_leaf = build_branches_to_value(std::begin(leaf.data), last1, std::move(leaf_value));
+  // basic first case: we consumed all of the leaf data, so let's return a branch leading down to this
+  //                   node where we split
+  if (first1 == last1) {
+    // *_to_value annotates the branch that it is a word
+    auto root_leaf = build_branches_to_value(std::begin(leaf.data), last1, std::move(leaf_value));
 
-        // now fill in the remaining leaf
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2, std::move(value));
-
-        return std::move(root_leaf.first);
-    }
-
-    // case 2: we exhausted the word data.  Split up to the prefix part and construct a new leaf rooted at the end of the first prefix match
-    if (first2 == last2) {
-        // *_to_value annotates this branch that it's a value at the end
-        auto root_leaf = build_branches_to_value(common_first, last2, std::move(value));
-
-        // now fill in the remaining leaf
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1, std::move(leaf_value));
-
-        return std::move(root_leaf.first);
-    }
-
-    // case 3: we've exhausted neither, build branches for both paths and construct two leaf nodes
-    auto root_leaf = build_branches<T>(std::begin(leaf.data), first1); // first1 is where the range differs
-
-    // leaf for the old leaf
-    {
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1, std::move(leaf_value));
-    }
-
-    // leaf for the new incoming word
-    {
-        // we use std::next here because the leaf contains data under it, not its own char as the first char
-        root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2, std::move(value));
-    }
+    // now fill in the remaining leaf
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2, std::move(value));
 
     return std::move(root_leaf.first);
+  }
+
+  // case 2: we exhausted the word data.  Split up to the prefix part and construct a new leaf rooted at the end of the first prefix match
+  if (first2 == last2) {
+    // *_to_value annotates this branch that it's a value at the end
+    auto root_leaf = build_branches_to_value(common_first, last2, std::move(value));
+
+    // now fill in the remaining leaf
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1, std::move(leaf_value));
+
+    return std::move(root_leaf.first);
+  }
+
+  // case 3: we've exhausted neither, build branches for both paths and construct two leaf nodes
+  auto root_leaf = build_branches<T>(std::begin(leaf.data), first1); // first1 is where the range differs
+
+  // leaf for the old leaf
+  {
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first1] = make_leaf(std::next(first1), last1, std::move(leaf_value));
+  }
+
+  // leaf for the new incoming word
+  {
+    // we use std::next here because the leaf contains data under it, not its own char as the first char
+    root_leaf.second->children[*first2] = make_leaf(std::next(first2), last2, std::move(value));
+  }
+
+  return std::move(root_leaf.first);
 }
 
 } // namespace detail
 
 template <typename T>
 class trie {
-    typedef detail::node_concept_t<T> node_concept_t;
+  typedef detail::node_concept_t<T> node_concept_t;
 
-    detail::branch_node_t<T> root_;
+  detail::branch_node_t<T> root_;
 public:
-    trie() { }
-    ~trie() { }
+  trie() { }
+  ~trie() { }
 
-    void insert(const std::string& word, T value) {
-        if (word.empty()) return;
+  void insert(const std::string& word, T value) {
+    if (word.empty()) return;
 
-        auto w_first = std::begin(word);
-        auto w_last  = std::end(word);
+    auto w_first = std::begin(word);
+    auto w_last = std::end(word);
 
-        auto first = root_.children.find(*w_first);
+    auto first = root_.children.find(*w_first);
 
-        if (first == std::end(root_.children)) {
-            // new leaf node
-            // we use std::next here because the leaf contains data under it, not its own char as the first char
-            root_.children[*w_first] = detail::make_leaf(std::next(w_first), w_last, std::move(value));
-            return;
+    if (first == std::end(root_.children)) {
+      // new leaf node
+      // we use std::next here because the leaf contains data under it, not its own char as the first char
+      root_.children[*w_first] = detail::make_leaf(std::next(w_first), w_last, std::move(value));
+      return;
+    }
+
+    // behavior switching on node type
+    struct insert_visitor : node_concept_t::mvisitor_t {
+      std::string::const_iterator      first;
+      std::string::const_iterator      last;
+      detail::branch_node_t<T>*        parent;
+      T*                               value;
+
+      insert_visitor(std::string::const_iterator& first, std::string::const_iterator& last,
+        detail::branch_node_t<T>* parent, T& value) :
+        first(first), last(last), parent(parent), value(&value) { }
+
+      void operator()(detail::branch_node_t<T>& branch) override {
+        if (first == last) {
+          // gut this branch and make it a branch value node
+          std::unique_ptr<detail::branch_value_node_t<T>> new_branch(
+            new detail::branch_value_node_t<T>(std::move(*value)));
+          new_branch->children = std::move(branch.children);
+
+          // re-parent (--first) is a valid iterator since this was checked at the top-level function
+          parent->children[*--first] = std::move(new_branch);
+          return;
         }
 
-        // behavior switching on node type
-        struct insert_visitor : node_concept_t::mvisitor_t {
-            std::string::const_iterator      first;
-            std::string::const_iterator      last;
-            detail::branch_node_t<T>*        parent;
-            T*                               value;
+        auto next = branch.children.find(*first);
+        if (next == std::end(branch.children)) {
+          // found place to insert leaf
+          branch.children[*first] = detail::make_leaf(std::next(first), last, std::move(*value));
+          return;
+        }
 
-            insert_visitor(std::string::const_iterator& first, std::string::const_iterator& last,
-                           detail::branch_node_t<T>* parent, T& value):
-                first(first), last(last), parent(parent), value(&value) { }
+        // recurse down the branch
+        ++first; // move forward
+        parent = &branch;
+        next->second->accept(*this);
+      }
+      void operator()(detail::branch_value_node_t<T>& vbranch) override {
+        if (first == last) {
+          // prefixes matched but we landed at a branch node...
+          // the user _should_ have just called reset_value()
+          return;
+        }
 
-            void operator()(detail::branch_node_t<T>& branch) override {
-                if (first == last) {
-                    // gut this branch and make it a branch value node
-                    std::unique_ptr<detail::branch_value_node_t<T>> new_branch(
-                        new detail::branch_value_node_t<T>(std::move(*value)));
-                    new_branch->children = std::move(branch.children);
+        auto next = vbranch.children.find(*first);
+        if (next == std::end(vbranch.children)) {
+          // found place for leaf
+          vbranch.children[*first] = detail::make_leaf(std::next(first), last, std::move(*value));
+          return;
+        }
 
-                    // re-parent (--first) is a valid iterator since this was checked at the top-level function
-                    parent->children[*--first] = std::move(new_branch);
-                    return;
-                }
+        // recurse down the branch
+        ++first; // move forward
+        parent = &vbranch;
+        next->second->accept(*this);
+      }
+      void operator()(detail::leaf_node_t<T>& leaf) override {
+        // we need to break this leaf apart
+        // --first is ok because we checked this on entry to the top-level function
+        auto new_node = detail::breakup_leaf(leaf, std::move(leaf.value), first, last, std::move(*value));
+        if (!new_node) {
+          // this indicates no change needs to be made to the tree
+          // the prefixes matched
+          // in fact, the user should have just called reset_value()
+          return;
+        }
+        parent->children[*--first] = std::move(new_node);
+      }
+    } visitor(++w_first, w_last, &root_, value);
 
-                auto next = branch.children.find(*first);
-                if (next == std::end(branch.children)) {
-                    // found place to insert leaf
-                    branch.children[*first] = detail::make_leaf(std::next(first), last, std::move(*value));
-                    return;
-                }
+    first->second->accept(visitor);
+  }
 
-                // recurse down the branch
-                ++first; // move forward
-                parent = &branch;
-                next->second->accept(*this);
-            }
-            void operator()(detail::branch_value_node_t<T>& vbranch) override {
-                if (first == last) {
-                    // prefixes matched but we landed at a branch node...
-                    // the user _should_ have just called reset_value()
-                    return;
-                }
+  bool exists(const std::string& word) const {
+    auto node = lookup_node_(std::begin(word), std::end(word));
 
-                auto next = vbranch.children.find(*first);
-                if (next == std::end(vbranch.children)) {
-                    // found place for leaf
-                    vbranch.children[*first] = detail::make_leaf(std::next(first), last, std::move(*value));
-                    return;
-                }
+    return node != nullptr;
+  }
 
-                // recurse down the branch
-                ++first; // move forward
-                parent = &vbranch;
-                next->second->accept(*this);
-            }
-            void operator()(detail::leaf_node_t<T>& leaf) override {
-                // we need to break this leaf apart
-                // --first is ok because we checked this on entry to the top-level function
-                auto new_node = detail::breakup_leaf(leaf, std::move(leaf.value), first, last, std::move(*value));
-                if (!new_node) {
-                    // this indicates no change needs to be made to the tree
-                    // the prefixes matched
-                    // in fact, the user should have just called reset_value()
-                    return;
-                }
-                parent->children[*--first] = std::move(new_node);
-            }
-        } visitor(++w_first, w_last, &root_, value);
+  bool value_at(const std::string& word, T& value) const {
+    auto node = lookup_node_(std::begin(word), std::end(word));
 
-        first->second->accept(visitor);
-    }
+    if (!node) return false;
 
-    bool exists(const std::string& word) const {
-        auto node = lookup_node_(std::begin(word), std::end(word));
+    bool extracted;
 
-        return node != nullptr;
-    }
+    struct value_extract_visitor : node_concept_t::visitor_t {
+      bool* extracted;
+      T*    value;
 
-    bool value_at(const std::string& word, T& value) const {
-        auto node = lookup_node_(std::begin(word), std::end(word));
+      value_extract_visitor(bool& extracted, T& value) : extracted(&extracted), value(&value) { *this->extracted = false; }
 
-        if (!node) return false;
+      void operator()(const detail::branch_node_t<T>& branch) const {
+        // no value here
+      }
+      void operator()(const detail::branch_value_node_t<T>& vbranch) const {
+        *value = vbranch.value;
+        *extracted = true;
+      }
+      void operator()(const detail::leaf_node_t<T>& leaf) const {
+        *value = leaf.value;
+        *extracted = true;
+      }
+    } visitor(extracted, value);
 
-        bool extracted;
+    node->accept(visitor);
 
-        struct value_extract_visitor : node_concept_t::visitor_t {
-            bool* extracted;
-            T*    value;
+    return extracted;
+  }
 
-            value_extract_visitor(bool& extracted, T& value): extracted(&extracted), value(&value) { *this->extracted = false; }
+  bool prefix_match(const std::string& prefix, std::string& matching_word) const {
+    auto prefix_end = std::begin(prefix);
+    auto node = lookup_node_prefix_(std::begin(prefix), std::end(prefix), prefix_end);
 
-            void operator()(const detail::branch_node_t<T>& branch) const {
-                // no value here
-            }
-            void operator()(const detail::branch_value_node_t<T>& vbranch) const {
-                *value     = vbranch.value;
-                *extracted = true;
-            }
-            void operator()(const detail::leaf_node_t<T>& leaf) const {
-                *value     = leaf.value;
-                *extracted = true;
-            }
-        } visitor(extracted, value);
+    if (!node) return false;
 
-        node->accept(visitor);
+    // create the matching word based on where the prefix ended
+    // this is necessary since the prefix could land somewhere in 
+    // a leaf node.  We only want to start with the characters from
+    // branches leading down to a leaf.
+    matching_word = std::string(std::begin(prefix), prefix_end);
 
-        return extracted;
-    }
+    bool ret;
 
-    bool prefix_match(const std::string& prefix, std::string& matching_word) const {
-        auto prefix_end = std::begin(prefix);
-        auto node       = lookup_node_prefix_(std::begin(prefix), std::end(prefix), prefix_end);
+    struct prefix_match_visitor : node_concept_t::visitor_t {
+      std::string* match;
+      bool*        result;
 
-        if (!node) return false;
+      prefix_match_visitor(std::string& match, bool& result) :
+        match(&match), result(&result) {
+        *this->result = false;
+      }
 
-        // create the matching word based on where the prefix ended
-        // this is necessary since the prefix could land somewhere in 
-        // a leaf node.  We only want to start with the characters from
-        // branches leading down to a leaf.
-        matching_word = std::string(std::begin(prefix), prefix_end);
+      void operator()(const detail::branch_node_t<T>& branch) const {
+        // recurse down
+        auto next = std::begin(branch.children);
+        assert(next != std::end(branch.children) && "prog error");
+        match->push_back(next->first);
+        next->second->accept(*this);
+      }
+      void operator()(const detail::branch_value_node_t<T>& vbranch) const {
+        *result = true; // done
+      }
+      void operator()(const detail::leaf_node_t<T>& leaf) const {
+        match->append(leaf.data); // just append the whole node
+        *result = true;
+      }
+    } visitor(matching_word, ret);
 
-        bool ret;
+    node->accept(visitor);
 
-        struct prefix_match_visitor : node_concept_t::visitor_t {
-            std::string* match;
-            bool*        result;
+    return ret;
+  }
 
-            prefix_match_visitor(std::string& match, bool& result):
-                match(&match), result(&result) { *this->result = false; }
+  std::vector<std::string> get_words() const {
+    std::vector<std::string> ret;
+    std::string              working_prefix;
 
-            void operator()(const detail::branch_node_t<T>& branch) const {
-                // recurse down
-                auto next = std::begin(branch.children);
-                assert( next != std::end(branch.children) && "prog error" );
-                match->push_back(next->first);
-                next->second->accept(*this);
-            }
-            void operator()(const detail::branch_value_node_t<T>& vbranch) const {
-                *result = true; // done
-            }
-            void operator()(const detail::leaf_node_t<T>& leaf) const {
-                match->append(leaf.data); // just append the whole node
-                *result = true;
-            }
-        } visitor(matching_word, ret);
+    struct print_visitor : node_concept_t::visitor_t {
+      std::string*              working_prefix;
+      std::vector<std::string>* result;
 
-        node->accept(visitor);
+      print_visitor(std::string& working_prefix, std::vector<std::string>& result) :
+        working_prefix(&working_prefix), result(&result) { }
 
-        return ret;
-    }
+      void operator()(const detail::branch_node_t<T>& branch) const {
+        // visit children
+        for (const auto& child : branch.children) {
+          working_prefix->push_back(child.first);
+          child.second->accept(*this);
+          working_prefix->pop_back();
+        }
+      }
+      void operator()(const detail::branch_value_node_t<T>& vbranch) const {
+        result->push_back(*working_prefix);
 
-    std::vector<std::string> get_words() const {
-        std::vector<std::string> ret;
-        std::string              working_prefix;
+        // visit children
+        for (const auto& child : vbranch.children) {
+          working_prefix->push_back(child.first);
+          child.second->accept(*this);
+          working_prefix->pop_back();
+        }
+      }
+      void operator()(const detail::leaf_node_t<T>& leaf) const {
+        result->push_back(*working_prefix + leaf.data);
+      }
+    } visitor(working_prefix, ret);
 
-        struct print_visitor : node_concept_t::visitor_t {
-            std::string*              working_prefix;
-            std::vector<std::string>* result;
+    root_.accept(visitor);
 
-            print_visitor(std::string& working_prefix, std::vector<std::string>& result):
-                working_prefix(&working_prefix), result(&result) { }
-
-            void operator()(const detail::branch_node_t<T>& branch) const {
-                // visit children
-                for (const auto& child : branch.children) {
-                    working_prefix->push_back(child.first);
-                    child.second->accept(*this);
-                    working_prefix->pop_back();
-                }
-            }
-            void operator()(const detail::branch_value_node_t<T>& vbranch) const {
-                result->push_back(*working_prefix);
-
-                // visit children
-                for (const auto& child : vbranch.children) {
-                    working_prefix->push_back(child.first);
-                    child.second->accept(*this);
-                    working_prefix->pop_back();
-                }
-            }
-            void operator()(const detail::leaf_node_t<T>& leaf) const {
-                result->push_back(*working_prefix + leaf.data);
-            }
-        } visitor(working_prefix, ret);
-
-        root_.accept(visitor);
-
-        return ret;
-    }
+    return ret;
+  }
 
 private:
-    const node_concept_t* lookup_node_(std::string::const_iterator first, std::string::const_iterator last) const {
-        if (first == last) return nullptr;
+  const node_concept_t* lookup_node_(std::string::const_iterator first, std::string::const_iterator last) const {
+    if (first == last) return nullptr;
 
-        const node_concept_t* ret;
+    const node_concept_t* ret;
 
-        struct lookup_visitor : node_concept_t::visitor_t {
-            std::string::const_iterator* first;
-            std::string::const_iterator* last;
-            const node_concept_t**       result;
+    struct lookup_visitor : node_concept_t::visitor_t {
+      std::string::const_iterator* first;
+      std::string::const_iterator* last;
+      const node_concept_t**       result;
 
-            lookup_visitor(std::string::const_iterator& first, std::string::const_iterator& last, const node_concept_t*& result):
-                first(&first), last(&last), result(&result) { *this->result = nullptr; }
+      lookup_visitor(std::string::const_iterator& first, std::string::const_iterator& last, const node_concept_t*& result) :
+        first(&first), last(&last), result(&result) {
+        *this->result = nullptr;
+      }
 
-            void operator()(const detail::branch_node_t<T>& branch) const {
-                if (*first == *last) {
-                    // not found
-                    return;
-                }
+      void operator()(const detail::branch_node_t<T>& branch) const {
+        if (*first == *last) {
+          // not found
+          return;
+        }
 
-                auto next = branch.children.find(**first);
-                if (next == std::end(branch.children)) {
-                    // not found
-                    return;
-                }
+        auto next = branch.children.find(**first);
+        if (next == std::end(branch.children)) {
+          // not found
+          return;
+        }
 
-                ++*first; // advance
-                next->second->accept(*this);
-            }
-            void operator()(const detail::branch_value_node_t<T>& vbranch) const {
-                if (*first == *last) {
-                    *result = &vbranch;
-                    return;
-                }
+        ++*first; // advance
+        next->second->accept(*this);
+      }
+      void operator()(const detail::branch_value_node_t<T>& vbranch) const {
+        if (*first == *last) {
+          *result = &vbranch;
+          return;
+        }
 
-                auto next = vbranch.children.find(**first);
-                if (next == std::end(vbranch.children)) {
-                    // not found
-                    return;
-                }
+        auto next = vbranch.children.find(**first);
+        if (next == std::end(vbranch.children)) {
+          // not found
+          return;
+        }
 
-                ++*first; // advance
-                next->second->accept(*this);
-            }
-            void operator()(const detail::leaf_node_t<T>& leaf) const {
-                // compare the remaining string to the leaf value
-                auto lfirst = std::begin(leaf.data);
-                auto llast  = std::end(leaf.data);
+        ++*first; // advance
+        next->second->accept(*this);
+      }
+      void operator()(const detail::leaf_node_t<T>& leaf) const {
+        // compare the remaining string to the leaf value
+        auto lfirst = std::begin(leaf.data);
+        auto llast = std::end(leaf.data);
 
-                if (std::distance(lfirst, llast) == std::distance(*first, *last) &&
-                    std::equal(lfirst, llast, *first)) {
-                    *result = &leaf;
-                }
-            }
-        } visitor(first, last, ret);
+        if (std::distance(lfirst, llast) == std::distance(*first, *last) &&
+          std::equal(lfirst, llast, *first)) {
+          *result = &leaf;
+        }
+      }
+    } visitor(first, last, ret);
 
-        root_.accept(visitor);
+    root_.accept(visitor);
 
-        return ret;
-    }
+    return ret;
+  }
 
-    const node_concept_t* lookup_node_prefix_(std::string::const_iterator first, std::string::const_iterator last, std::string::const_iterator& prefix_end) const {
-        if (first == last) return nullptr;
+  const node_concept_t* lookup_node_prefix_(std::string::const_iterator first, std::string::const_iterator last, std::string::const_iterator& prefix_end) const {
+    if (first == last) return nullptr;
 
-        const node_concept_t* ret;
+    const node_concept_t* ret;
 
-        struct lookup_prefix_visitor : node_concept_t::visitor_t {
-            std::string::const_iterator* first;
-            std::string::const_iterator* last;
-            const node_concept_t**       result;
+    struct lookup_prefix_visitor : node_concept_t::visitor_t {
+      std::string::const_iterator* first;
+      std::string::const_iterator* last;
+      const node_concept_t**       result;
 
-            lookup_prefix_visitor(std::string::const_iterator& first, std::string::const_iterator& last, const node_concept_t*& result):
-                first(&first), last(&last), result(&result) { *this->result = nullptr; }
+      lookup_prefix_visitor(std::string::const_iterator& first, std::string::const_iterator& last, const node_concept_t*& result) :
+        first(&first), last(&last), result(&result) {
+        *this->result = nullptr;
+      }
 
-            void operator()(const detail::branch_node_t<T>& branch) const {
-                if (*first == *last) {
-                    // best match
-                    *result = &branch;
-                    return;
-                }
+      void operator()(const detail::branch_node_t<T>& branch) const {
+        if (*first == *last) {
+          // best match
+          *result = &branch;
+          return;
+        }
 
-                auto next = branch.children.find(**first);
-                if (next == std::end(branch.children)) {
-                    // not found
-                    return;
-                }
+        auto next = branch.children.find(**first);
+        if (next == std::end(branch.children)) {
+          // not found
+          return;
+        }
 
-                ++*first; // advance
-                next->second->accept(*this);
-            }
-            void operator()(const detail::branch_value_node_t<T>& vbranch) const {
-                if (*first == *last) {
-                    *result = &vbranch;
-                    return;
-                }
+        ++*first; // advance
+        next->second->accept(*this);
+      }
+      void operator()(const detail::branch_value_node_t<T>& vbranch) const {
+        if (*first == *last) {
+          *result = &vbranch;
+          return;
+        }
 
-                auto next = vbranch.children.find(**first);
-                if (next == std::end(vbranch.children)) {
-                    // not found
-                    return;
-                }
+        auto next = vbranch.children.find(**first);
+        if (next == std::end(vbranch.children)) {
+          // not found
+          return;
+        }
 
-                ++*first; // advance
-                next->second->accept(*this);
-            }
-            void operator()(const detail::leaf_node_t<T>& leaf) const {
-                // compare the remaining string to the leaf value
-                auto lfirst = std::begin(leaf.data);
-                auto llast  = std::end(leaf.data);
+        ++*first; // advance
+        next->second->accept(*this);
+      }
+      void operator()(const detail::leaf_node_t<T>& leaf) const {
+        // compare the remaining string to the leaf value
+        auto lfirst = std::begin(leaf.data);
+        auto llast = std::end(leaf.data);
 
-                // compare to the end of this prefix
-                if (std::distance(*first, *last) <= std::distance(lfirst, llast) &&
-                    std::equal(*first, *last, lfirst)) {
-                    *result = &leaf;
-                }
-            }
-        } visitor(first, last, ret);
+        // compare to the end of this prefix
+        if (std::distance(*first, *last) <= std::distance(lfirst, llast) &&
+          std::equal(*first, *last, lfirst)) {
+          *result = &leaf;
+        }
+      }
+    } visitor(first, last, ret);
 
-        root_.accept(visitor);
+    root_.accept(visitor);
 
-        prefix_end = first;
+    prefix_end = first;
 
-        return ret;
-    }
+    return ret;
+  }
 };
 
 } // namespace impl3
